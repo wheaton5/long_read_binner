@@ -1,0 +1,9 @@
+[package]
+name = "long_read_binner"
+version = "0.1.0"
+authors = ["wheaton5 <whheaton@gmail.com>"]
+
+[dependencies]
+clap = "2.32.0"
+flate2 = "1.0.6"
+debruijn = {git = "https://github.com/10XGenomics/rust-debruijn.git"}
