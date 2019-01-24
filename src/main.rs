@@ -12,9 +12,17 @@ use debruijn::kmer::*;
 
 use std::collections::HashMap;
 
+mod extra_kmers;
+use extra_kmers::*;
+
 use std::io::BufReader;
 use std::io::BufRead;
+use std::io::BufWriter;
 use std::fs::File;
+use flate2::Compression;
+use flate2::write::ZlibEncoder;
+use flate2::read::GzDecoder;
+
 //use std::path::Path;
 
 
@@ -44,14 +52,45 @@ fn main() {
             .help("long read fastq.gz files"))
         .get_matches();
     let fastqs: Vec<_> = matches.values_of("fastqs").unwrap().collect();
-    let kmers: Vec<_> = matches.values_of("kmers").unwrap().collect();
-    let output_prefix = matches.values_of("output_prefix").unwrap();
-    let kmers: HashMap<u64,u32> = load_kmers(kmers);
+    let kmer_files: Vec<_> = matches.values_of("kmers").unwrap().collect();
+    let output_prefix = matches.value_of("output_prefix").unwrap_or("longreads_bin_");
+    let bins: u32 = kmer_files.len() as u32;
+    let (kmers, k_size): (HashMap<u64,u32>, usize) = load_kmers(kmer_files);
+    bin_long_reads(kmers, bins, fastqs, output_prefix.to_string(), k_size);
     println!("Hello, world!");
 }
 
-fn load_kmers(kmers: Vec<&str>) -> HashMap<u64,u32> {
+fn bin_long_reads(kmers: HashMap<u64, u32>, bins: u32, fastqs: Vec<&str>, output_prefix: String, k_size: usize) {
+    let mut writers : Vec<ZlibEncoder<BufWriter<File>>> = Vec::new();
+    for writer_index in 0..bins {
+        let mut filename = output_prefix.clone();
+        filename.push_str(&writer_index.to_string());
+        filename.push_str(".fastq.gz");
+        let mut file = File::create(filename).expect("Unable to create file");
+        let mut buf = BufWriter::new(file);
+        let mut writer = ZlibEncoder::new(buf, Compression::default());
+        writers.push(writer);
+    }
+    for fastq in &fastqs {
+        let file = match File::open(fastq) {
+            Ok(file) => file,
+            Err(error) => panic!("There was a problem opening the file: {:?}", error),
+        };
+        let gz = GzDecoder::new(file);
+        for (line_number, line) in BufReader::new(gz).lines().enumerate() {
+            if line_number % 4 == 1 {
+                let dna = DnaString::from_dna_string(&line.unwrap());
+                for kmer_start in 0..(dna.len() - k_size + 1) {
+                    println!("do stuff there");
+                }
+            }
+        }
+    }
+}
+
+fn load_kmers(kmers: Vec<&str>) -> (HashMap<u64,u32>, usize) {
     let mut to_ret: HashMap<u64, u32> = HashMap::new();
+    let mut kmer_size: usize = 0;
     for (index, kmer_file) in kmers.iter().enumerate() {
         let f = match File::open(kmer_file) {
             Ok(f) => f,
@@ -61,22 +100,17 @@ fn load_kmers(kmers: Vec<&str>) -> HashMap<u64,u32> {
         for line in file.lines() {
             let tmp = line.unwrap();
             let tokens: Vec<&str> = tmp.split_whitespace().collect();
+            
             let dna = DnaString::from_dna_string(&tokens[0]);
-            let kmer: Kmer21 = dna.get_kmer(0);
-            println!("{}",kmer.to_string());
-            to_ret.insert(kmer.to_u64(), index as u32);
+            if kmer_size == 0 {
+                kmer_size = dna.len();
+            } else if dna.len() != kmer_size {
+                panic!("kmer sizes in files are not consistent, previous kmers of length {}, vs {}",kmer_size,dna.to_string());
+            }
+            let to_hash = get_rc_invariant(dna, kmer_size);
+            to_ret.insert(to_hash, index as u32);
         }           
     }
-    to_ret
+    (to_ret, kmer_size)
 }
 
-
-type Kmer21 = VarIntKmer<u64, K21>;
-#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct K21;
-
-impl KmerSize for K21 {
-    fn K() -> usize {
-        21
-    }
-}
