@@ -4,7 +4,7 @@ use debruijn::dna_string::*;
 use debruijn::kmer::*;
 use std::cmp::min;
 
-pub fn get_rc_invariant(dna: DnaString, kmer_size: usize) -> u64 {
+pub fn get_rc_invariant(dna: &DnaString, kmer_size: usize) -> u64 {
     match kmer_size {
         9 => {
             let kmer: Kmer9 = dna.get_kmer(0);

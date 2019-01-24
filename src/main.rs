@@ -107,7 +107,10 @@ fn load_kmers(kmers: Vec<&str>) -> (HashMap<u64,u32>, usize) {
             } else if dna.len() != kmer_size {
                 panic!("kmer sizes in files are not consistent, previous kmers of length {}, vs {}",kmer_size,dna.to_string());
             }
-            let to_hash = get_rc_invariant(dna, kmer_size);
+            let to_hash = get_rc_invariant(&dna, kmer_size);
+            if to_ret.contains_key(&to_hash) {
+                panic!("kmer {} seen before, kmer sets must be unique (and reverse compliment unique) and mutually exclusive", dna.to_string());
+            }
             to_ret.insert(to_hash, index as u32);
         }           
     }
