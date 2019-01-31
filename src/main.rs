@@ -46,11 +46,7 @@ fn bin_long_reads(kmers: HashMap<u64, usize>, bins: usize, fastqs: Vec<String>, 
         let mut bin_hits: Vec<u32> = Vec::new();
         for _bin in 0..bins { bin_hits.push(0); }
         let mut reader = dna_io::DnaReader::from_path(fastq);
-        'lineloop: loop {
-            let record = match reader.next() {
-                Some(x) => x,
-                None => break 'lineloop,
-            };
+        for record in reader {
             for k in KmerX::kmers_from_ascii(&record.seq.as_bytes()) {
                 match kmers.get(&get_rc_invariant_kmer(k)) {
                     Some(x) => {
@@ -60,6 +56,8 @@ fn bin_long_reads(kmers: HashMap<u64, usize>, bins: usize, fastqs: Vec<String>, 
                 }
             }
             println!("{:?}", bin_hits);
+            // do some probabilities
+            // do something with the read
             for bin in 0..bins { bin_hits[bin] = 0; }
         }
     }
