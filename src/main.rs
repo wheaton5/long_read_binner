@@ -25,17 +25,13 @@ use std::cmp::min;
 static mut KMER_SIZE: usize = 0; // meant to change. will fail if it doesn't
 
 fn main() {
-    let yaml = load_yaml!("cli.yml");
-    let matches = App::from_yaml(yaml).get_matches();
-    let fastqs: Vec<_> = matches.values_of("input").unwrap().collect();
-    let kmer_files: Vec<_> = matches.values_of("kmers").unwrap().collect();
-    let output_prefix = matches.value_of("output_prefix").unwrap_or("longreads_bin_");
+    let (fastqs, kmer_files, output_prefix) = load_params();
     let bins: usize = kmer_files.len();
     let kmers: HashMap<u64, usize> = load_kmers(kmer_files);
     bin_long_reads(kmers, bins, fastqs, output_prefix.to_string());
 }
 
-fn bin_long_reads(kmers: HashMap<u64, usize>, bins: usize, fastqs: Vec<&str>, output_prefix: String) {
+fn bin_long_reads(kmers: HashMap<u64, usize>, bins: usize, fastqs: Vec<String>, output_prefix: String) {
     let mut writers : Vec<ZlibEncoder<BufWriter<File>>> = Vec::new();
     for writer_index in 0..bins {
         let mut filename = output_prefix.clone();
@@ -47,15 +43,6 @@ fn bin_long_reads(kmers: HashMap<u64, usize>, bins: usize, fastqs: Vec<&str>, ou
         writers.push(writer);
     }
     for fastq in &fastqs {
-        //let file = match File::open(fastq) {
-        //    Ok(file) => file,
-        //    Err(error) => panic!("There was a problem opening the file: {:?}", error),
-        //};
-        //let filetype = fastq.split(".").collect::<Vec<&str>>();
-        //let filetype = filetype[filetype.len()-1];
-        //println!("{}",filetype);
-        //let gz = GzDecoder::new(file);
-        //let mut read_buf: String = String::new();
         let mut bin_hits: Vec<u32> = Vec::new();
         for _bin in 0..bins { bin_hits.push(0); }
         let mut reader = dna_io::DnaReader::from_path(fastq);
@@ -75,36 +62,10 @@ fn bin_long_reads(kmers: HashMap<u64, usize>, bins: usize, fastqs: Vec<&str>, ou
             println!("{:?}", bin_hits);
             for bin in 0..bins { bin_hits[bin] = 0; }
         }
-        //for (line_number, line) in BufReader::new(gz).lines().enumerate() {
-        //    match line_number % 4 {
-        //        0 => {
-        //            read_buf.clear();
-        //            read_buf.push_str(&line.unwrap());
-        //        },
-        //        1 => {
-        //            let dna = DnaString::from_dna_string(&line.unwrap());
-        //            for kmer_start in 0..(dna.len() - k_size + 1) {
-        //                let to_hash = get_rc_invariant(&dna, kmer_start, k_size);
-        //                match kmers.get(&to_hash) {
-        //                    Some(bin) => bin_hits[*bin] += 1,
-        //                    None => (),
-        //                }     
-        //            }
-        //        },
-        //        2 => { read_buf.push_str(&line.unwrap()); },
-        //        3 => { 
-        //            read_buf.push_str(&line.unwrap());
-                    // decide where to bin read
-
-        //            for bin in 0..bins { bin_hits[bin] = 0; }
-        //        },
-        //        _ => (),
-        //    }
-        //}
     }
 }
 
-fn load_kmers(kmers: Vec<&str>) -> HashMap<u64, usize> {
+fn load_kmers(kmers: Vec<String>) -> HashMap<u64, usize> {
     let mut to_ret: HashMap<u64, usize> = HashMap::new();
     for (index, kmer_file) in kmers.iter().enumerate() {
         println!("kmer file {}",kmer_file);
@@ -154,4 +115,19 @@ impl KmerSize for KX {
             KMER_SIZE
         }
     }
+}
+
+fn load_params() -> (Vec<String>, Vec<String>, String) {
+    let yaml_params = load_yaml!("params.yml");
+    let params = App::from_yaml(yaml_params).get_matches();
+    let mut fastqs: Vec<String> = Vec::new();
+    for fastq in params.values_of("input").unwrap() {
+        fastqs.push(fastq.to_string());
+    }
+    let mut kmer_files: Vec<String> = Vec::new();
+    for kmer_file in params.values_of("kmers").unwrap() {
+        kmer_files.push(kmer_file.to_string());
+    }
+    let output_prefix = params.value_of("output_prefix").unwrap_or("longreads_bin_").to_string();
+    (fastqs, kmer_files, output_prefix)
 }
