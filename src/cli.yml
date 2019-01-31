@@ -1,0 +1,24 @@
+name: long_read_binner
+version: "1.0"
+author: Haynes Heaton <whheaton@gmail.com>
+about: Uses distinguishing kmers to bin long reads
+args:
+    - kmers:
+        long: kmers
+        short: k
+        takes_value: true
+        required: true
+        multiple: true
+        help: set of kmer files with 1 kmer per line. Will output a long read file for each kmer file plus an unplaced long read file. Kmers from each file must be the same length and mutually exclusive. Kmers of up to size 32 supported.
+    - output_prefix:
+        long: output_prefix
+        short: o
+        takes_value: true
+        required: true
+        help: prefix for output long read files
+    - input:
+        long: input
+        short: i
+        required: true
+        multiple: true
+        help: long read files (fastq/fastq.gz, fasta/fasta.gz, sam, bam supported)

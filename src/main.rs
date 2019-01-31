@@ -1,10 +1,10 @@
+#[macro_use]
 extern crate clap;
 extern crate flate2;
 extern crate debruijn;
 extern crate dna_io;
-//extern crate num;
 
-use clap::{Arg, App};
+use clap::{App};
 
 use debruijn::*;
 use debruijn::dna_string::*;
@@ -12,8 +12,6 @@ use debruijn::kmer::*;
 
 use std::collections::HashMap;
 
-//mod extra_kmers;
-//use extra_kmers::*;
 
 use std::io::BufReader;
 use std::io::BufRead;
@@ -21,38 +19,15 @@ use std::io::BufWriter;
 use std::fs::File;
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
-use flate2::read::GzDecoder;
 
 use std::cmp::min;
 
 static mut KMER_SIZE: usize = 0; // meant to change. will fail if it doesn't
 
 fn main() {
-    let matches = App::new("long_read_binner")
-        .author("Haynes Heaton <whheaton@gmail.com>")
-        .about("Uses distinguishing kmers to bin long reads")
-        .arg(Arg::with_name("kmers")
-            .long("kmers")
-            .short("k")
-            .takes_value(true)
-            .required(true)
-            .multiple(true)
-            .help("set of kmer files with 1 kmer per line. Will output a long read file for each kmer file plus an unplaced long read file. Kmers from each file must be the same length and mutually exclusive. Kmers of up to size 32 supported."))
-        .arg(Arg::with_name("output_prefix")
-            .long("output_prefix")
-            .short("o")
-            .takes_value(true)
-            .required(true)
-            .help("prefix for output long read files"))
-        .arg(Arg::with_name("input")
-            .long("input")
-            .short("f")
-            .required(true)
-            .takes_value(true)
-            .multiple(true)
-            .help("long read files (fastq/fastq.gz, fasta/fasta.gz, sam, bam supported)"))
-        .get_matches();
-    let fastqs: Vec<_> = matches.values_of("fastqs").unwrap().collect();
+    let yaml = load_yaml!("cli.yml");
+    let matches = App::from_yaml(yaml).get_matches();
+    let fastqs: Vec<_> = matches.values_of("input").unwrap().collect();
     let kmer_files: Vec<_> = matches.values_of("kmers").unwrap().collect();
     let output_prefix = matches.value_of("output_prefix").unwrap_or("longreads_bin_");
     let bins: usize = kmer_files.len();
@@ -72,19 +47,34 @@ fn bin_long_reads(kmers: HashMap<u64, usize>, bins: usize, fastqs: Vec<&str>, ou
         writers.push(writer);
     }
     for fastq in &fastqs {
-        let file = match File::open(fastq) {
-            Ok(file) => file,
-            Err(error) => panic!("There was a problem opening the file: {:?}", error),
-        };
-        let filetype = fastq.split(".").collect::<Vec<&str>>();
-        let filetype = filetype[filetype.len()-1];
-        println!("{}",filetype);
-        let gz = GzDecoder::new(file);
-        let mut read_buf: String = String::new();
+        //let file = match File::open(fastq) {
+        //    Ok(file) => file,
+        //    Err(error) => panic!("There was a problem opening the file: {:?}", error),
+        //};
+        //let filetype = fastq.split(".").collect::<Vec<&str>>();
+        //let filetype = filetype[filetype.len()-1];
+        //println!("{}",filetype);
+        //let gz = GzDecoder::new(file);
+        //let mut read_buf: String = String::new();
         let mut bin_hits: Vec<u32> = Vec::new();
-        for bin in 0..bins { bin_hits.push(0); }
-        //let mut next_line_seq = false;
-        let reader = dna_io::DnaReader::from_path(fastq);
+        for _bin in 0..bins { bin_hits.push(0); }
+        let mut reader = dna_io::DnaReader::from_path(fastq);
+        'lineloop: loop {
+            let record = match reader.next() {
+                Some(x) => x,
+                None => break 'lineloop,
+            };
+            for k in KmerX::kmers_from_ascii(&record.seq.as_bytes()) {
+                match kmers.get(&get_rc_invariant_kmer(k)) {
+                    Some(x) => {
+                        bin_hits[*x] += 1;                
+                    },
+                    None => (),
+                }
+            }
+            println!("{:?}", bin_hits);
+            for bin in 0..bins { bin_hits[bin] = 0; }
+        }
         //for (line_number, line) in BufReader::new(gz).lines().enumerate() {
         //    match line_number % 4 {
         //        0 => {
@@ -117,6 +107,7 @@ fn bin_long_reads(kmers: HashMap<u64, usize>, bins: usize, fastqs: Vec<&str>, ou
 fn load_kmers(kmers: Vec<&str>) -> HashMap<u64, usize> {
     let mut to_ret: HashMap<u64, usize> = HashMap::new();
     for (index, kmer_file) in kmers.iter().enumerate() {
+        println!("kmer file {}",kmer_file);
         let f = match File::open(kmer_file) {
             Ok(f) => f,
             Err(err) => panic!("There was a problem opening the file: {:?}",err),
@@ -129,8 +120,7 @@ fn load_kmers(kmers: Vec<&str>) -> HashMap<u64, usize> {
             let dna = DnaString::from_dna_string(&tokens[0]);
             unsafe {
                 if KMER_SIZE == 0 && dna.len() != 0 {
-                    KMER_SIZE = dna.len();
-                
+                    KMER_SIZE = dna.len();                
                 } else if dna.len() != KMER_SIZE {
                     panic!("kmer sizes in files are not consistent, previous kmers of length {}, vs {}",KMER_SIZE, dna.to_string());
                 }
@@ -147,6 +137,10 @@ fn load_kmers(kmers: Vec<&str>) -> HashMap<u64, usize> {
 
 fn get_rc_invariant(dna: &DnaString, pos: usize) -> u64 {
     let kmer: KmerX = dna.get_kmer(pos);
+    min(kmer.to_u64(), kmer.rc().to_u64())
+}
+
+fn get_rc_invariant_kmer(kmer: KmerX) -> u64 {
     min(kmer.to_u64(), kmer.rc().to_u64())
 }
 
