@@ -7,7 +7,7 @@ echo 'export PATH=~/.cargo/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 which cargo
 ```
-If the build fails on the htslib dependency you might need xz. You will need xz for the htslib dependency.
+If the build fails on the htslib dependency you might need xz. 
 ```
 export CFLAGS='-I/path/to/xz/<version>/include'
 or add that to your .bashrc and source it
