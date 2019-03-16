@@ -14,8 +14,8 @@ or add that to your .bashrc and source it
 ```
 Then you should be able to clone and install the project.
 ```
-https://github.com/wheaton5/haplovalidate
-cd haplovalidate
+git clone https://github.com/wheaton5/long_read_binner
+cd long_read_binner
 cargo build --release
 ```
 And the usage is
