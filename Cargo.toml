@@ -8,13 +8,5 @@ clap = {version = "~2.27.0", features = ["yaml"]}
 flate2 = "1.0.6"
 debruijn = {git = "https://github.com/10XGenomics/rust-debruijn.git"}
 dna_io = {git = "https://github.com/wheaton5/dna_io.git"}
-serde = "^1"
-serde_derive = "^1"
-serde_json = "^1"
-rand = "0.5"
-smallvec = "*"
-bit-set = "0.4.0"
-itertools = ">=0.7"
-pdqsort = "*"
-byteorder = "*"
-num = "0.2"
+statrs = "0.6.0"
+rayon = "1.0.3"

@@ -21,4 +21,21 @@ args:
         short: i
         required: true
         multiple: true
+        takes_value: true
         help: long read files (fastq/fastq.gz, fasta/fasta.gz, sam, bam supported)
+    - modimizer:
+        long: modimizer
+        short: m
+        required: false
+        takes_value: true
+        help: only look at kmers where kmer % modimizer == mod_index. Use same values that you did for distinguishing_kmers
+    - mod_index:
+        long: mod_index
+        required: false
+        takes_value: true
+        help: see modimizer help
+    - difference_threshold:
+        long: difference_threshold
+        required: false
+        takes_value: true
+        help: kmer hit difference threshold for assigning a read to a kmer bin
